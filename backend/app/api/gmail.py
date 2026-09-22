@@ -1,5 +1,6 @@
-"""Rotas do fluxo de conexão Gmail via OAuth2."""
-from datetime import datetime, timezone
+"""Rotas do fluxo de conexão Gmail via OAuth2 + leitura de metadados."""
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -8,6 +9,8 @@ from app.core.oauth_state import create_state, verify_state
 from app.core.security import get_current_user_id
 from app.core.token_crypto import decrypt_token, encrypt_token
 from app.integrations import gmail_oauth
+from app.models.gmail import GmailConnectionOut, MessagePage
+from app.services import email_fetcher
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -44,6 +47,11 @@ async def gmail_callback(code: str = Query(...), state: str = Query(...)):
         )
     email_address = await gmail_oauth.get_user_email(tokens["access_token"])
 
+    # O Google devolve expires_in (segundos, tipicamente 3599) — salvamos o
+    # timestamp absoluto para o email_fetcher decidir o refresh proativo.
+    expires_in = int(tokens.get("expires_in", 3600))
+    token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
     supabase = get_supabase()
     supabase.table("gmail_connections").upsert({
         "user_id": user_id,
@@ -52,6 +60,7 @@ async def gmail_callback(code: str = Query(...), state: str = Query(...)):
         "refresh_token_encrypted": encrypt_token(tokens["refresh_token"]),
         "scope": tokens.get("scope", ""),
         "status": "active",
+        "token_expires_at": token_expires_at.isoformat(),
     }, on_conflict="user_id,email_address").execute()
 
     return {"message": f"Gmail {email_address} conectado com sucesso."}
@@ -86,3 +95,55 @@ async def gmail_revoke(connection_id: str, user_id: str = Depends(get_current_us
     }).eq("id", connection_id).eq("user_id", user_id).execute()
 
     return {"message": "Conexão revogada com sucesso."}
+
+
+@router.get("/connections", response_model=list[GmailConnectionOut])
+async def gmail_list_connections(
+    user_id: Annotated[str, Depends(get_current_user_id)],
+):
+    """Lista as conexões Gmail do usuário autenticado.
+
+    O response_model (GmailConnectionOut) não tem campos de token — mesmo
+    que o service devolvesse algo sensível por engano, o FastAPI filtra.
+    """
+    return email_fetcher.list_connections(user_id)
+
+
+@router.get("/connections/{connection_id}/messages", response_model=MessagePage)
+async def gmail_list_messages(
+    connection_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    q: Annotated[
+        str,
+        Query(
+            min_length=1,
+            max_length=300,
+            description="Busca na sintaxe do Gmail. Ex.: from:nubank.com.br, newer_than:7d",
+        ),
+    ],
+    max_results: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> MessagePage:
+    """Metadados dos e-mails que casam com `q` (Etapa 4: nada é persistido,
+    corpo nunca é baixado). Códigos de erro:
+    - 404: conexão inexistente ou de outro usuário
+    - 409: conexão revogada/em erro, ou refresh token morto (reconectar)
+    """
+    try:
+        return await email_fetcher.fetch_connection_emails(
+            user_id, connection_id, q, max_results
+        )
+    except email_fetcher.ConnectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    except email_fetcher.ConnectionNotUsableError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Conexão com status '{exc}' — reconecte o Gmail em /gmail/connect",
+        )
+    except email_fetcher.GmailReconnectRequiredError:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Google recusou o refresh token (expirado ou revogado). "
+                "Reconecte o Gmail em /gmail/connect."
+            ),
+        )

@@ -151,6 +151,35 @@ curl -X POST "http://127.0.0.1:8000/gmail/revoke/<connection_id>" `
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### 7. Ler e-mails do Gmail (Etapa 4)
+
+**Pré-requisitos:** migration `0002` aplicada no Supabase (SQL Editor →
+cole `supabase/migrations/0002_gmail_token_lifecycle.sql` → Run) e
+**Gmail API habilitada** no projeto do Google Cloud (APIs & Services →
+Library → Gmail API → Enable). Conexão Gmail já autorizada (seção 6).
+
+Com o backend rodando e o `$TOKEN` do signup em mãos (PowerShell):
+
+```powershell
+# Lista suas conexões (anote o "id"; a resposta nunca inclui tokens)
+curl "http://127.0.0.1:8000/gmail/connections" -H "Authorization: Bearer $TOKEN"
+
+# Metadados de e-mails do Nubank — q aceita a sintaxe de busca do Gmail
+curl "http://127.0.0.1:8000/gmail/connections/<connection_id>/messages?q=from:nubank.com.br&max_results=5" -H "Authorization: Bearer $TOKEN"
+```
+
+Esperado: `{"messages": [{"message_id", "thread_id", "sender", "subject",
+"received_at", "label_ids"}, ...], "next_page_token": ...}` — **sem corpo
+de e-mail em nenhum lugar**.
+
+Dica de descoberta: `q=newer_than:7d` lista tudo que chegou recentemente —
+útil para conferir os remetentes reais de cada banco antes de fixar os
+filtros (Etapa 5). Documentação interativa: http://127.0.0.1:8000/docs
+
+Códigos de erro: `404` conexão inexistente/de outro usuário; `409` conexão
+revogada ou refresh token morto (refaça o fluxo da seção 6); `422`
+parâmetros inválidos (`q` vazio, `max_results` fora de 1–50).
+
 ## Estrutura do projeto
 
 Ver árvore completa no prompt original do projeto / `docs/architecture.md`.
