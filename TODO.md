@@ -3,7 +3,7 @@
 - [x] Etapa 1 — Arquitetura + estrutura + DB schema + migrations
 - [x] Etapa 2 — Autenticação de usuários (Supabase Auth)
 - [x] Etapa 3 — Conexão Gmail OAuth
-- [ ] Etapa 3.5 — Higiene: lint, deps explícitas, .env.example, testes OAuth/crypto, commitar schema SQL
+- [x] Etapa 3.5 — Higiene: lint, deps explícitas, .env.example, testes OAuth/crypto, commitar schema SQL
 - [ ] Etapa 4 — Leitura de e-mails de teste
 - [ ] Etapa 5 — Parser de uma instituição (Nubank)
 - [ ] Etapa 6 — Persistir primeira transação
