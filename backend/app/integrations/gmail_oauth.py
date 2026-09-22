@@ -1,6 +1,8 @@
 """Funções de baixo nível do fluxo OAuth do Gmail (sem tocar no banco)."""
-import httpx
 from urllib.parse import urlencode
+
+import httpx
+
 from app.core.config import get_settings
 
 AUTH_BASE_URL = "https://accounts.google.com/o/oauth2/v2/auth"

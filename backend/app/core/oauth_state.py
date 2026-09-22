@@ -1,9 +1,10 @@
 """Geração e validação do 'state' do fluxo OAuth (anti-CSRF + carrega user_id)."""
-import time
-import hmac
-import hashlib
 import base64
+import hashlib
+import hmac
 import json
+import time
+
 from app.core.config import get_settings
 
 _STATE_TTL_SECONDS = 600  # 10 minutos pra completar o fluxo

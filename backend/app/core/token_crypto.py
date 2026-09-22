@@ -1,6 +1,8 @@
 """Criptografia simétrica dos tokens do Gmail antes de salvar no banco."""
 from functools import lru_cache
+
 from cryptography.fernet import Fernet
+
 from app.core.config import get_settings
 
 
