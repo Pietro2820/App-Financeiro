@@ -1,0 +1,16 @@
+{
+  "id": "18f3a1a0b9c8d7e6",
+  "threadId": "18f3a1a0b9c8d7e6",
+  "labelIds": ["UNREAD", "INBOX"],
+  "snippet": "",
+  "payload": {
+    "headers": [
+      { "name": "From", "value": "Nubank <no-reply@nubank.com.br>" },
+      { "name": "Subject", "value": "Compra aprovada: R$ 42,90" },
+      { "name": "Date", "value": "Sun, 21 Sep 2026 19:30:00 -0300" }
+    ]
+  },
+  "sizeEstimate": 0,
+  "historyId": "9876542",
+  "internalDate": "1789948800000"
+}

@@ -22,6 +22,9 @@ dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    # Mock de httpx no nível de transporte — valida serialização/headers
+    # reais das chamadas à Gmail API sem rede (>=0.22 exigido pelo httpx 0.28)
+    "respx>=0.22",
 ]
 
 [tool.ruff]

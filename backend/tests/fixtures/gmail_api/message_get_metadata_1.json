@@ -1,0 +1,16 @@
+{
+  "id": "18f3a2b4c5d6e7f8",
+  "threadId": "18f3a2b4c5d6e7f8",
+  "labelIds": ["IMPORTANT", "CATEGORY_UPDATES"],
+  "snippet": "",
+  "payload": {
+    "headers": [
+      { "name": "From", "value": "Nubank <noreply@nubank.com.br>" },
+      { "name": "Subject", "value": "Sua fatura esta pronta para pagamento" },
+      { "name": "Date", "value": "Mon, 22 Sep 2026 08:15:00 -0300" }
+    ]
+  },
+  "sizeEstimate": 0,
+  "historyId": "9876543",
+  "internalDate": "1790035200000"
+}
