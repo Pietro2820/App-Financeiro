@@ -8,9 +8,15 @@ Veja `docs/architecture.md` para a visão geral de componentes e
 
 ## Status
 
-Etapa 1 — estrutura, schema do banco e primeira migration. Gmail, IA,
-Open Finance, frontend e automação (GitHub Actions) ainda **não** estão
-implementados — isso vem nas próximas etapas.
+Etapas 1–3 concluídas: estrutura do projeto, schema do banco,
+autenticação (Supabase Auth + JWKS) e conexão Gmail via OAuth2.
+Próxima: Etapa 4 — leitura de e-mails de teste. IA, Open Finance,
+frontend e automação (GitHub Actions) ainda **não** estão implementados.
+
+> ⚠️ Pendência: os arquivos `supabase/migrations/*.sql` e `supabase/seed.sql`
+> foram aplicados no projeto Supabase mas ainda não foram commitados neste
+> repositório (o schema só existe no banco). Isso será corrigido antes da
+> Etapa 4.
 
 ## Setup (Windows / PowerShell)
 
@@ -21,9 +27,12 @@ implementados — isso vem nas próximas etapas.
    **service_role key** (não a `anon` key — o backend precisa da
    `service_role` para operações administrativas; ela nunca vai para o
    frontend).
-3. Copie `.env.example` para `backend/.env` (dentro da pasta `backend/`,
-   **não** na raiz do projeto — é de lá que o `uvicorn` roda e lê o
-   arquivo) e preencha `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+3. Copie `.env.example` (raiz do projeto) para `backend/.env` (dentro da
+   pasta `backend/`, **não** na raiz — é de lá que o `uvicorn` roda e lê o
+   arquivo) e preencha todas as variáveis. Os nomes exatos estão no
+   `.env.example` (ex.: a chave secreta do Supabase chama
+   `SUPABASE_SECRET_KEY`), junto com os comandos para gerar
+   `TOKEN_ENCRYPTION_KEY` e `OAUTH_STATE_SECRET`.
 
 ### 2. Aplicar a migration do schema
 
@@ -67,11 +76,11 @@ nosso backend.
 
 **Configuração externa antes de testar:**
 
-1. Em **Project Settings → API → JWT Settings**, copie o **JWT Secret**
-   e preencha `SUPABASE_JWT_SECRET` no `backend/.env`.
-2. Em **Project Settings → API**, copie a chave **anon public** e
-   preencha `SUPABASE_ANON_KEY` no `backend/.env` (só usada aqui pra
-   testar via curl, o backend em si nunca usa a anon key).
+1. Nenhuma variável nova no `backend/.env` — a validação do JWT usa
+   **JWKS** (chaves públicas buscadas em `{SUPABASE_URL}/auth/v1/...`),
+   então o backend não precisa de nenhum segredo do Auth.
+2. A chave **anon public** (Project Settings → API) é usada só nos
+   comandos `curl` de signup abaixo, direto no terminal — nunca no backend.
 3. Em **Authentication → Providers → Email**, se estiver marcado
    "Confirm email", desmarque temporariamente pra facilitar o teste
    local (sem isso você precisaria clicar num link de confirmação
@@ -105,6 +114,41 @@ Esperado: `{"user_id": "<uuid do usuário>"}`.
 
 ```powershell
 curl "http://127.0.0.1:8000/me"
+```
+
+### 6. Testar conexão Gmail (Etapa 3)
+
+**Configuração externa (Google Cloud Console):**
+
+1. Crie um projeto em https://console.cloud.google.com e habilite a
+   **Gmail API** (APIs & Services → Library).
+2. Configure o **OAuth consent screen** (APIs & Services → OAuth consent
+   screen). Enquanto estiver em modo **Testing**, só e-mails adicionados
+   em *Test users* conseguem autorizar — **e o refresh token expira em
+   7 dias**. Para uso contínuo (cron da Etapa 14), publique o app como
+   **In production**.
+3. Em **Credentials → Create credentials → OAuth client ID**, tipo *Web
+   application*, adicione o redirect URI **exatamente** igual ao
+   `GOOGLE_REDIRECT_URI` do `backend/.env`
+   (ex.: `http://127.0.0.1:8000/gmail/callback`).
+4. Preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no `backend/.env`.
+
+**Fluxo de teste** (com o backend rodando via `uvicorn`):
+
+```powershell
+# 1. Gera a URL de autorização (use o $TOKEN do signup da seção anterior)
+curl "http://127.0.0.1:8000/gmail/connect" -H "Authorization: Bearer $TOKEN"
+
+# 2. Abra a "authorization_url" retornada no navegador e autorize.
+#    O Google redireciona para /gmail/callback?code=...&state=...
+#    Resposta esperada: {"message":"Gmail voce@gmail.com conectado com sucesso."}
+
+# 3. Confira no Supabase (Table Editor → gmail_connections): uma linha com
+#    status "active" e tokens criptografados (texto ilegível, começando com "gAAAAA").
+
+# 4. Revogar (connection_id = coluna id da linha acima):
+curl -X POST "http://127.0.0.1:8000/gmail/revoke/<connection_id>" `
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Estrutura do projeto
