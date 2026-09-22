@@ -14,7 +14,12 @@ _PRIVATE_KEY = ec.generate_private_key(ec.SECP256R1())
 _PUBLIC_KEY = _PRIVATE_KEY.public_key()
 
 
-def _make_token(*, sub: str = "user-123", exp_delta: timedelta = timedelta(hours=1), audience: str = "authenticated") -> str:
+def _make_token(
+    *,
+    sub: str = "user-123",
+    exp_delta: timedelta = timedelta(hours=1),
+    audience: str = "authenticated",
+) -> str:
     payload = {
         "sub": sub,
         "aud": audience,
