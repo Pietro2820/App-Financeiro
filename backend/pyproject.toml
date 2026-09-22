@@ -9,6 +9,10 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "supabase>=2.7",
+    # Declarados explicitamente porque o código importa direto —
+    # antes funcionavam só por dependência transitiva (frágil)
+    "httpx>=0.27",
+    "cryptography>=43",
     "python-dotenv>=1.0",
     "pyjwt[crypto]>=2.9",
 ]
