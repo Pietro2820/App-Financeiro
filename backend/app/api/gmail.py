@@ -1,6 +1,7 @@
 """Rotas do fluxo de conexão Gmail via OAuth2 + leitura de metadados."""
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -67,14 +68,17 @@ async def gmail_callback(code: str = Query(...), state: str = Query(...)):
 
 
 @router.post("/revoke/{connection_id}")
-async def gmail_revoke(connection_id: str, user_id: str = Depends(get_current_user_id)):
+async def gmail_revoke(
+    connection_id: UUID,  # UUID tipado: malformado vira 422, não 500 do PostgREST
+    user_id: str = Depends(get_current_user_id),
+):
     supabase = get_supabase()
     # maybe_single() em vez de single(): single() LEVANTA exceção quando não
     # encontra nenhuma linha (viraria um 500); maybe_single() retorna None e
     # cai no 404 abaixo, que é o comportamento correto.
     result = supabase.table("gmail_connections") \
         .select("*") \
-        .eq("id", connection_id) \
+        .eq("id", str(connection_id)) \
         .eq("user_id", user_id) \
         .maybe_single() \
         .execute()
@@ -92,7 +96,7 @@ async def gmail_revoke(connection_id: str, user_id: str = Depends(get_current_us
     supabase.table("gmail_connections").update({
         "status": "revoked",
         "revoked_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", connection_id).eq("user_id", user_id).execute()
+    }).eq("id", str(connection_id)).eq("user_id", user_id).execute()
 
     return {"message": "Conexão revogada com sucesso."}
 
@@ -111,7 +115,7 @@ async def gmail_list_connections(
 
 @router.get("/connections/{connection_id}/messages", response_model=MessagePage)
 async def gmail_list_messages(
-    connection_id: str,
+    connection_id: UUID,  # UUID tipado: malformado vira 422, não 500 do PostgREST
     user_id: Annotated[str, Depends(get_current_user_id)],
     q: Annotated[
         str,
@@ -130,7 +134,7 @@ async def gmail_list_messages(
     """
     try:
         return await email_fetcher.fetch_connection_emails(
-            user_id, connection_id, q, max_results
+            user_id, str(connection_id), q, max_results
         )
     except email_fetcher.ConnectionNotFoundError:
         raise HTTPException(status_code=404, detail="Conexão não encontrada")

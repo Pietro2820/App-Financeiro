@@ -15,7 +15,7 @@ from app.models.gmail import EmailMetadata, MessagePage
 from app.services import email_fetcher
 
 USER_ID = "user-123"
-CONNECTION_ID = "conn-1"
+CONNECTION_ID = "3ff0d5d7-5df3-4c7a-ad4d-d9757a93aa71"
 
 
 @pytest.fixture
@@ -166,4 +166,18 @@ def test_messages_409_when_reconnect_required(auth_client, monkeypatch):
 )
 def test_messages_validates_query_params(auth_client, params):
     response = auth_client.get(f"/gmail/connections/{CONNECTION_ID}/messages", params=params)
+    assert response.status_code == 422
+
+
+def test_messages_malformed_connection_id_returns_422(auth_client):
+    """Regressão do bug real: '<id>' literal na URL chegava ao PostgREST
+    (coluna uuid) e virava 500. Com o path param tipado UUID, o FastAPI
+    rejeita antes de tocar o banco."""
+    response = auth_client.get("/gmail/connections/<id>/messages", params={"q": "x"})
+    assert response.status_code == 422
+
+
+def test_revoke_malformed_connection_id_returns_422(auth_client):
+    """Mesma proteção na rota de revoke."""
+    response = auth_client.post("/gmail/revoke/nao-sou-uuid")
     assert response.status_code == 422
