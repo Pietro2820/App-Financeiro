@@ -20,6 +20,18 @@ frontend e automação (GitHub Actions) ainda **não** estão implementados.
 
 ## Setup (Windows / PowerShell)
 
+> **Notas Windows (leia antes dos testes com HTTP):**
+> 1. Use sempre **`curl.exe`**, nunca `curl` — no Windows PowerShell `curl`
+>    é um alias para `Invoke-WebRequest`, cuja sintaxe é incompatível
+>    (`-H` falha com erro de conversão para `IDictionary`). O curl real
+>    já vem com o Windows 10+. Alternativa 100% nativa: `Invoke-RestMethod`
+>    com `-Headers @{ Authorization = "Bearer $TOKEN" }`.
+> 2. Variáveis como `$TOKEN`, `$ANON_KEY` e `$SUPABASE_URL` **só existem na
+>    janela onde foram definidas** — ao abrir um PowerShell novo, defina-as
+>    de novo antes dos comandos.
+> 3. O backend precisa estar rodando (`uvicorn`) durante os testes — inclusive
+>    quando o navegador chamar o `/gmail/callback` no fluxo OAuth.
+
 ### 1. Criar o projeto no Supabase
 
 1. Crie uma conta em https://supabase.com e um novo projeto.
@@ -92,7 +104,7 @@ nosso backend.
 $SUPABASE_URL = "https://xxxxxxxxxxxx.supabase.co"
 $ANON_KEY = "sua-anon-key-aqui"
 
-curl -X POST "$SUPABASE_URL/auth/v1/signup" `
+curl.exe -X POST "$SUPABASE_URL/auth/v1/signup" `
   -H "apikey: $ANON_KEY" `
   -H "Content-Type: application/json" `
   -d '{\"email\":\"teste@example.com\",\"password\":\"senha123456\"}'
@@ -105,7 +117,7 @@ A resposta traz um `access_token` — copie esse valor.
 ```powershell
 $TOKEN = "cole-o-access_token-aqui"
 
-curl "http://127.0.0.1:8000/me" -H "Authorization: Bearer $TOKEN"
+curl.exe "http://127.0.0.1:8000/me" -H "Authorization: Bearer $TOKEN"
 ```
 
 Esperado: `{"user_id": "<uuid do usuário>"}`.
@@ -113,7 +125,7 @@ Esperado: `{"user_id": "<uuid do usuário>"}`.
 **Sem token** (deve dar 401, não 500):
 
 ```powershell
-curl "http://127.0.0.1:8000/me"
+curl.exe "http://127.0.0.1:8000/me"
 ```
 
 ### 6. Testar conexão Gmail (Etapa 3)
@@ -137,7 +149,7 @@ curl "http://127.0.0.1:8000/me"
 
 ```powershell
 # 1. Gera a URL de autorização (use o $TOKEN do signup da seção anterior)
-curl "http://127.0.0.1:8000/gmail/connect" -H "Authorization: Bearer $TOKEN"
+curl.exe "http://127.0.0.1:8000/gmail/connect" -H "Authorization: Bearer $TOKEN"
 
 # 2. Abra a "authorization_url" retornada no navegador e autorize.
 #    O Google redireciona para /gmail/callback?code=...&state=...
@@ -147,7 +159,7 @@ curl "http://127.0.0.1:8000/gmail/connect" -H "Authorization: Bearer $TOKEN"
 #    status "active" e tokens criptografados (texto ilegível, começando com "gAAAAA").
 
 # 4. Revogar (connection_id = coluna id da linha acima):
-curl -X POST "http://127.0.0.1:8000/gmail/revoke/<connection_id>" `
+curl.exe -X POST "http://127.0.0.1:8000/gmail/revoke/<connection_id>" `
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -162,10 +174,10 @@ Com o backend rodando e o `$TOKEN` do signup em mãos (PowerShell):
 
 ```powershell
 # Lista suas conexões (anote o "id"; a resposta nunca inclui tokens)
-curl "http://127.0.0.1:8000/gmail/connections" -H "Authorization: Bearer $TOKEN"
+curl.exe "http://127.0.0.1:8000/gmail/connections" -H "Authorization: Bearer $TOKEN"
 
 # Metadados de e-mails do Nubank — q aceita a sintaxe de busca do Gmail
-curl "http://127.0.0.1:8000/gmail/connections/<connection_id>/messages?q=from:nubank.com.br&max_results=5" -H "Authorization: Bearer $TOKEN"
+curl.exe "http://127.0.0.1:8000/gmail/connections/<connection_id>/messages?q=from:nubank.com.br&max_results=5" -H "Authorization: Bearer $TOKEN"
 ```
 
 Esperado: `{"messages": [{"message_id", "thread_id", "sender", "subject",
